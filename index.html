@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PustakaKu - Manajer & Pembaca E-Book Profesional</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- PDF.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    </script>
+    <!-- PWA Manifest Inline -->
+    <link rel="manifest" id="pwaManifest">
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col selection:bg-indigo-500 selection:text-white">
+
+    <!-- Navbar Utama -->
+    <header class="bg-indigo-600 text-white shadow-md sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-2.5">
+                <span class="text-2xl">📚</span>
+                <h1 class="text-xl sm:text-2xl font-bold tracking-tight">PustakaKu</h1>
+            </div>
+            <div class="flex items-center gap-2">
+                <!-- Tombol Install PWA -->
+                <button id="installBtn" onclick="installPWA()" class="hidden bg-indigo-700 hover:bg-indigo-800 text-white px-3.5 py-2.5 rounded-xl font-semibold transition shadow-sm cursor-pointer items-center gap-1.5 text-sm sm:text-base border border-indigo-500">
+                    <span>📥 Install App</span>
+                </button>
+                <button onclick="openUploadModal()" class="bg-indigo-500 hover:bg-indigo-400 text-white px-4 py-2.5 rounded-xl font-semibold transition shadow-sm cursor-pointer flex items-center gap-2 text-sm sm:text-base">
+                    <span>+ Upload E-Book</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Konten Utama -->
+    <main class="flex-grow max-w-7xl mx-auto px-4 py-8 w-full grid grid-cols-1 lg:grid-cols-4 gap-8">
+        
+        <!-- Sidebar Navigasi Kategori / List -->
+        <aside class="lg:col-span-1 space-y-6">
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 sticky top-24">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="font-bold text-slate-700 uppercase text-xs tracking-wider">Kategori / List</h2>
+                </div>
+                <ul id="categoryList" class="space-y-1 text-sm">
+                    <!-- Dirender oleh JS -->
+                </ul>
+                
+                <div class="mt-5 pt-4 border-t border-slate-100">
+                    <label class="block text-xs font-semibold text-slate-500 mb-1.5">Buat List Baru</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="newCategoryInput" placeholder="Nama list..." class="w-full text-sm px-3.5 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <button onclick="addCategory()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition cursor-pointer shadow-xs">+</button>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Daftar E-Book (Library) -->
+        <section class="lg:col-span-3">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm gap-4">
+                <div>
+                    <h2 id="currentCategoryTitle" class="text-xl font-bold text-slate-800">Semua Buku</h2>
+                    <p id="currentCategoryDesc" class="text-xs text-slate-400 mt-0.5">Kelola dan baca koleksi e-book Anda di sini.</p>
+                </div>
+                <div class="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                    <span id="bookCount" class="text-xs font-semibold bg-slate-100 text-slate-600 px-3.5 py-2 rounded-xl">0 buku</span>
+                    <!-- Tombol Kelola List Aktif -->
+                    <div id="activeListActions" class="hidden flex gap-2">
+                        <button onclick="openRenameListModal()" class="text-xs bg-amber-50 text-amber-700 hover:bg-amber-100 px-3 py-2 rounded-xl font-semibold transition cursor-pointer border border-amber-200">Ubah Nama List</button>
+                        <button onclick="deleteActiveList()" class="text-xs bg-red-50 text-red-700 hover:bg-red-100 px-3 py-2 rounded-xl font-semibold transition cursor-pointer border border-red-200">Hapus List</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Grid Buku -->
+            <div id="bookGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                <!-- Dirender oleh JS -->
+            </div>
+        </section>
+    </main>
+
+    <!-- Modal Upload E-Book -->
+    <div id="uploadModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs hidden items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-slate-800">Upload E-Book Baru</h3>
+                <button onclick="closeUploadModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer">✕</button>
+            </div>
+            
+            <form id="uploadForm" onsubmit="handleUpload(event)" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Judul Buku</label>
+                    <input type="text" id="bookTitle" required placeholder="Contoh: Pemrograman JavaScript" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Penulis</label>
+                    <input type="text" id="bookAuthor" required placeholder="Contoh: Budi Santoso" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Pilih Kategori / List</label>
+                    <select id="bookCategory" onchange="handleCategorySelectChange()" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <!-- Dirender oleh JS -->
+                    </select>
+                </div>
+                
+                <!-- Input Dinamis untuk Tambah List Baru di Dalam Modal -->
+                <div id="newCategoryUploadGroup" class="hidden bg-indigo-50/60 p-4 rounded-2xl border border-indigo-100 space-y-2.5">
+                    <label class="block text-xs font-bold text-indigo-900 uppercase tracking-wider">Nama List Baru</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="newCategoryUploadInput" placeholder="Ketik nama list baru..." class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <button type="button" onclick="confirmNewCategoryModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-bold cursor-pointer shadow-xs">Tambah</button>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">File E-Book (PDF Asli)</label>
+                    <input type="file" id="bookFile" accept=".pdf" required class="w-full text-xs text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer border border-slate-300 rounded-xl">
+                    <p class="text-[11px] text-slate-400 mt-1">Dokumen tersimpan aman di browser Anda tanpa kompresi.</p>
+                </div>
+
+                <div class="flex justify-end gap-2.5 pt-3 border-t border-slate-100">
+                    <button type="button" onclick="closeUploadModal()" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl text-sm font-medium transition cursor-pointer">Batal</button>
+                    <button type="submit" id="submitBtn" class="px-5 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-500 transition shadow-sm cursor-pointer">Simpan Buku</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Ubah Nama List -->
+    <div id="renameListModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs hidden items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100">
+            <h3 class="text-lg font-bold text-slate-800 mb-3">Ubah Nama List</h3>
+            <input type="text" id="renameListInput" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <div class="flex justify-end gap-2">
+                <button onclick="closeRenameListModal()" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl text-sm font-medium cursor-pointer">Batal</button>
+                <button onclick="submitRenameList()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold cursor-pointer">Simpan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Pindah Buku ke List Lain -->
+    <div id="moveBookModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs hidden items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100">
+            <h3 class="text-lg font-bold text-slate-800 mb-3">Pindahkan Buku ke List</h3>
+            <p class="text-xs text-slate-400 mb-3">Pilih list tujuan untuk buku ini:</p>
+            <select id="targetCategorySelect" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm mb-4 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"></select>
+            <div class="flex justify-end gap-2">
+                <button onclick="closeMoveBookModal()" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl text-sm font-medium cursor-pointer">Batal</button>
+                <button onclick="submitMoveBook()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold cursor-pointer">Pindahkan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Pembaca Buku dengan PDF.js & High-DPI Rendering -->
+    <div id="readModal" class="fixed inset-0 bg-slate-900 hidden flex-col z-50">
+        <!-- Toolbar Atas -->
+        <div class="bg-slate-800 text-white px-6 py-3.5 flex justify-between items-center shadow-md border-b border-slate-700 z-10">
+            <h3 id="readTitle" class="font-semibold truncate max-w-xs sm:max-w-xl text-sm sm:text-base">Judul Buku</h3>
+            <button onclick="closeReadModal()" class="bg-red-600 hover:bg-red-500 text-white text-xs sm:text-sm font-semibold px-4 py-2 rounded-xl transition cursor-pointer shadow-sm">
+                ✕ Tutup & Simpan Progres
+            </button>
+        </div>
+
+        <!-- Area Tampilan Lembar Buku -->
+        <div class="flex-grow w-full overflow-auto bg-slate-950 flex justify-center p-4 pb-28">
+            <div id="pdfViewerContainer" class="shadow-2xl my-auto">
+                <canvas id="pdfCanvas" class="max-w-none h-auto block mx-auto rounded-lg"></canvas>
+            </div>
+        </div>
+
+        <!-- Toolbar Mengambang di Bawah -->
+        <div class="absolute bottom-5 left-1/2 -translate-x-1/2 bg-slate-800/95 backdrop-blur-md text-white px-5 py-3 rounded-2xl shadow-2xl border border-slate-700 flex flex-wrap items-center justify-center gap-4 z-20 max-w-[95vw]">
+            
+            <!-- Kontrol Halaman -->
+            <div class="flex items-center gap-2.5">
+                <button onclick="prevPage()" class="bg-slate-700 hover:bg-slate-600 px-3.5 py-1.5 rounded-xl font-bold text-xs sm:text-sm transition cursor-pointer shadow-xs">‹ Prev</button>
+                <span class="text-xs sm:text-sm whitespace-nowrap px-1 text-slate-300">Hal <span id="pageNum" class="text-white font-semibold">1</span> / <span id="pageCount" class="text-white font-semibold">?</span></span>
+                <button onclick="nextPage()" class="bg-slate-700 hover:bg-slate-600 px-3.5 py-1.5 rounded-xl font-bold text-xs sm:text-sm transition cursor-pointer shadow-xs">Next ›</button>
+            </div>
+
+            <div class="h-5 w-px bg-slate-600 hidden sm:block"></div>
+
+            <!-- Kontrol Zoom -->
+            <div class="flex items-center gap-2">
+                <button onclick="zoomOut()" title="Perkecil" class="bg-slate-700 hover:bg-slate-600 w-8 h-8 rounded-xl font-bold text-sm transition cursor-pointer flex items-center justify-center shadow-xs">-</button>
+                <span id="zoomLabel" class="text-xs w-12 text-center text-slate-300 font-medium">80%</span>
+                <button onclick="zoomIn()" title="Perbesar" class="bg-slate-700 hover:bg-slate-600 w-8 h-8 rounded-xl font-bold text-sm transition cursor-pointer flex items-center justify-center shadow-xs">+</button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Script Logika Aplikasi & PWA -->
+    <script>
+        // PWA Manifest Dinamis
+        const manifestData = {
+            "name": "PustakaKu E-Book Manager",
+            "short_name": "PustakaKu",
+            "start_url": "./",
+            "display": "standalone",
+            "background_color": "#f8fafc",
+            "theme_color": "#4f46e5",
+            "icons": [
+                {
+                    "src": "https://img.icons8.com/color/512/book.png",
+                    "sizes": "512x512",
+                    "type": "image/png"
+                }
+            ]
+        };
+        const stringManifest = JSON.stringify(manifestData);
+        const blob = new Blob([stringManifest], {type: 'application/json'});
+        document.getElementById('pwaManifest').setAttribute('href', URL.createObjectURL(blob));
+
+        if ('serviceWorker' in navigator) {
+            const swCode = `self.addEventListener('fetch', (e) => { e.respondWith(fetch(e.request).catch(() => caches.match(e.request))); });`;
+            const swBlob = new Blob([swCode], {type: 'text/javascript'});
+            navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(err => console.log('SW failed:', err));
+        }
+
+        let deferredPrompt;
+        const installBtn = document.getElementById('installBtn');
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            installBtn.classList.remove('hidden');
+            installBtn.classList.add('flex');
+        });
+
+        function installPWA() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        console.log('User menginstal PustakaKu');
+                    }
+                    deferredPrompt = null;
+                    installBtn.classList.add('hidden');
+                });
+            }
+        }
+
+        // Database & State Aplikasi
+        let db;
+        let books = [];
+        let categories = JSON.parse(localStorage.getItem('pustakaku_categories')) || ['Favorit', 'Sedang Dibaca', 'Selesai Dibaca'];
+        let activeCategory = 'all';
+        
+        let pdfDoc = null;
+        let pageNum = 1;
+        let pageRendering = false;
+        let pageNumPending = null;
+        let scale = 0.8; // Default zoom 80%
+        let currentActiveBookId = null;
+        let canvas, ctx;
+
+        const request = indexedDB.open('PustakaKuDB', 7);
+        request.onerror = () => alert('Gagal membuka database lokal browser.');
+        request.onsuccess = (event) => {
+            db = event.target.result;
+            loadBooksFromDB();
+        };
+        request.onupgradeneeded = (event) => {
+            db = event.target.result;
+            if (!db.objectStoreNames.contains('books')) {
+                db.createObjectStore('books', { keyPath: 'id' });
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            canvas = document.getElementById('pdfCanvas');
+            ctx = canvas.getContext('2d');
+            renderCategories();
+        });
+
+        function loadBooksFromDB() {
+            if (!db) return;
+            const transaction = db.transaction(['books'], 'readonly');
+            const store = transaction.objectStore('books');
+            const request = store.getAll();
+
+            request.onsuccess = (event) => {
+                books = event.target.result || [];
+                renderCategories();
+                renderBooks();
+            };
+        }
+
+        function saveBookToDB(bookObj, callback) {
+            const transaction = db.transaction(['books'], 'readwrite');
+            const store = transaction.objectStore('books');
+            const request = store.put(bookObj);
+
+            request.onsuccess = () => {
+                loadBooksFromDB();
+                if (callback) callback();
+            };
+            request.onerror = () => {
+                alert('Gagal menyimpan buku ke database browser. Pastikan ruang penyimpanan mencukupi.');
+                const submitBtn = document.getElementById('submitBtn');
+                if (submitBtn) {
+                    submitBtn.innerText = 'Simpan Buku';
+                    submitBtn.disabled = false;
+                }
+            };
+        }
+
+        function deleteBookFromDB(id) {
+            const transaction = db.transaction(['books'], 'readwrite');
+            const store = transaction.objectStore('books');
+            const request = store.delete(id);
+            request.onsuccess = () => loadBooksFromDB();
+        }
+
+        function renderCategories() {
+            const listEl = document.getElementById('categoryList');
+            const selectEl = document.getElementById('bookCategory');
+            const activeActionsEl = document.getElementById('activeListActions');
+            
+            let html = `<li>
+                <button onclick="filterCategory('all')" class="w-full text-left px-3.5 py-2.5 rounded-xl font-medium transition cursor-pointer ${activeCategory === 'all' ? 'bg-indigo-50 text-indigo-600 font-semibold shadow-xs' : 'text-slate-600 hover:bg-slate-100'}">
+                    Semua Buku
+                </button>
+            </li>`;
+
+            let selectHtml = '';
+            categories.forEach(cat => {
+                const isActive = activeCategory === cat;
+                const count = books.filter(b => b.category === cat).length;
+                html += `<li>
+                    <button onclick="filterCategory('${cat}')" class="w-full text-left px-3.5 py-2.5 rounded-xl font-medium transition flex justify-between items-center cursor-pointer ${isActive ? 'bg-indigo-50 text-indigo-600 font-semibold shadow-xs' : 'text-slate-600 hover:bg-slate-100'}">
+                        <span>${cat}</span>
+                        <span class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-normal">${count}</span>
+                    </button>
+                </li>`;
+                selectHtml += `<option value="${cat}">${cat}</option>`;
+            });
+
+            selectHtml += `<option value="ADD_NEW_CATEGORY">+ Tambah List Baru...</option>`;
+
+            if (listEl) listEl.innerHTML = html;
+            if (selectEl) {
+                const currentSelected = selectEl.value;
+                selectEl.innerHTML = selectHtml;
+                if (currentSelected && selectEl.querySelector(`option[value="${currentSelected}"]`)) {
+                    selectEl.value = currentSelected;
+                }
+            }
+
+            if (activeCategory !== 'all') {
+                if (activeActionsEl) activeActionsEl.classList.remove('hidden');
+                document.getElementById('currentCategoryTitle').innerText = activeCategory;
+            } else {
+                if (activeActionsEl) activeActionsEl.classList.add('hidden');
+                document.getElementById('currentCategoryTitle').innerText = 'Semua Buku';
+            }
+        }
+
+        function handleCategorySelectChange() {
+            const selectEl = document.getElementById('bookCategory');
+            const newGroupEl = document.getElementById('newCategoryUploadGroup');
+            const newInputEl = document.getElementById('newCategoryUploadInput');
+
+            if (selectEl.value === 'ADD_NEW_CATEGORY') {
+                newGroupEl.classList.remove('hidden');
+                newInputEl.focus();
+            } else {
+                newGroupEl.classList.add('hidden');
+                newInputEl.value = '';
+            }
+        }
+
+        function confirmNewCategoryModal() {
+            const newInputEl = document.getElementById('newCategoryUploadInput');
+            const val = newInputEl.value.trim();
+            if (val) {
+                if (!categories.includes(val)) {
+                    categories.push(val);
+                    localStorage.setItem('pustakaku_categories', JSON.stringify(categories));
+                }
+                renderCategories();
+                
+                const selectEl = document.getElementById('bookCategory');
+                selectEl.value = val;
+                
+                document.getElementById('newCategoryUploadGroup').classList.add('hidden');
+                newInputEl.value = '';
+            } else {
+                alert('Nama list baru tidak boleh kosong!');
+            }
+        }
+
+        function addCategory() {
+            const input = document.getElementById('newCategoryInput');
+            const val = input.value.trim();
+            if (val && !categories.includes(val)) {
+                categories.push(val);
+                input.value = '';
+                localStorage.setItem('pustakaku_categories', JSON.stringify(categories));
+                renderCategories();
+            }
+        }
+
+        function openRenameListModal() {
+            if (activeCategory === 'all') return;
+            document.getElementById('renameListInput').value = activeCategory;
+            const modal = document.getElementById('renameListModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeRenameListModal() {
+            const modal = document.getElementById('renameListModal');
+            modal.classList.remove('flex');
+            modal.classList.add('hidden');
+        }
+
+        function submitRenameList() {
+            const newName = document.getElementById('renameListInput').value.trim();
+            if (!newName || newName === activeCategory) {
+                closeRenameListModal();
+                return;
+            }
+            if (categories.includes(newName)) {
+                alert('Nama list tersebut sudah ada.');
+                return;
+            }
+
+            const oldName = activeCategory;
+            const idx = categories.indexOf(oldName);
+            if (idx !== -1) {
+                categories[idx] = newName;
+                localStorage.setItem('pustakaku_categories', JSON.stringify(categories));
+            }
+
+            books.forEach(b => {
+                if (b.category === oldName) {
+                    b.category = newName;
+                    saveBookToDB(b);
+                }
+            });
+
+            activeCategory = newName;
+            closeRenameListModal();
+            renderCategories();
+            renderBooks();
+        }
+
+        function deleteActiveList() {
+            if (activeCategory === 'all') return;
+            if (confirm(`Apakah Anda yakin ingin menghapus list "${activeCategory}"? Buku di dalam list ini akan dipindahkan ke kategori lain.`)) {
+                const targetCat = categories.filter(c => c !== activeCategory)[0] || 'Umum';
+                if (!categories.includes(targetCat) && categories.length <= 1) {
+                    categories.push('Umum');
+                }
+
+                books.forEach(b => {
+                    if (b.category === activeCategory) {
+                        b.category = categories.filter(c => c !== activeCategory)[0] || 'Umum';
+                        saveBookToDB(b);
+                    }
+                });
+
+                categories = categories.filter(c => c !== activeCategory);
+                localStorage.setItem('pustakaku_categories', JSON.stringify(categories));
+                activeCategory = 'all';
+                renderCategories();
+                renderBooks();
+            }
+        }
+
+        let bookToMoveId = null;
+        function openMoveBookModal(id) {
+            bookToMoveId = id;
+            const select = document.getElementById('targetCategorySelect');
+            select.innerHTML = categories.map(c => `<option value="${c}">${c}</option>`).join('');
+            const modal = document.getElementById('moveBookModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeMoveBookModal() {
+            const modal = document.getElementById('moveBookModal');
+            modal.classList.remove('flex');
+            modal.classList.add('hidden');
+            bookToMoveId = null;
+        }
+
+        function submitMoveBook() {
+            if (!bookToMoveId) return;
+            const targetCat = document.getElementById('targetCategorySelect').value;
+            const book = books.find(b => b.id === bookToMoveId);
+            if (book) {
+                book.category = targetCat;
+                saveBookToDB(book, () => {
+                    closeMoveBookModal();
+                    renderBooks();
+                });
+            }
+        }
+
+        function filterCategory(cat) {
+            activeCategory = cat;
+            renderCategories();
+            renderBooks();
+        }
+
+        function renderBooks() {
+            const gridEl = document.getElementById('bookGrid');
+            if (!gridEl) return;
+            const filteredBooks = activeCategory === 'all' ? books : books.filter(b => b.category === activeCategory);
+            
+            document.getElementById('bookCount').innerText = `${filteredBooks.length} buku`;
+
+            if (filteredBooks.length === 0) {
+                gridEl.innerHTML = `
+                    <div class="col-span-full text-center py-16 bg-white rounded-2xl border border-slate-200 p-8 shadow-xs">
+                        <p class="text-slate-400 text-base font-medium">Belum ada buku di kategori ini.</p>
+                        <p class="text-slate-400 text-xs mt-1">Klik tombol "+ Upload E-Book" di atas untuk menambahkan koleksi.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            gridEl.innerHTML = filteredBooks.map((book) => {
+                const progressText = book.lastPage > 1 ? `Halaman ${book.lastPage}` : 'Belum mulai dibaca';
+                const statusBadge = book.isCompleted 
+                    ? `<span class="bg-emerald-50 text-emerald-700 text-xs font-semibold px-2.5 py-1 rounded-lg border border-emerald-100">Selesai Dibaca</span>`
+                    : `<span class="bg-amber-50 text-amber-700 text-xs font-semibold px-2.5 py-1 rounded-lg border border-amber-100">Progres: ${progressText}</span>`;
+
+                return `
+                    <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs flex flex-col justify-between hover:shadow-md transition">
+                        <div>
+                            <div class="flex justify-between items-center mb-3">
+                                <span class="bg-indigo-50 text-indigo-700 text-xs font-semibold px-2.5 py-1 rounded-lg border border-indigo-100">${book.category}</span>
+                                <div class="flex items-center gap-2">
+                                    <button onclick="openMoveBookModal(${book.id})" class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer" title="Pindah List">Pindah</button>
+                                    <span class="text-slate-300">|</span>
+                                    <button onclick="toggleComplete(${book.id})" class="text-xs text-slate-400 hover:text-indigo-600 underline font-medium cursor-pointer">
+                                        ${book.isCompleted ? '↺ Belum' : '✓ Selesai'}
+                                    </button>
+                                </div>
+                            </div>
+                            <h3 class="font-bold text-slate-800 line-clamp-1 text-base mb-0.5">${book.title}</h3>
+                            <p class="text-slate-500 text-xs mb-3 font-medium">${book.author}</p>
+                            <div class="mb-4">${statusBadge}</div>
+                        </div>
+                        <div class="flex items-center gap-2 pt-3 border-t border-slate-100">
+                            <button onclick="openReadModal(${book.id})" class="flex-grow bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold py-2 px-3 rounded-xl text-center transition cursor-pointer shadow-xs">
+                                Baca Buku
+                            </button>
+                            <button onclick="deleteBook(${book.id})" class="text-slate-400 hover:text-red-600 p-2 rounded-xl transition cursor-pointer hover:bg-red-50" title="Hapus Buku">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function openUploadModal() {
+            const modal = document.getElementById('uploadModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            renderCategories();
+        }
+
+        function closeUploadModal() {
+            const modal = document.getElementById('uploadModal');
+            modal.classList.remove('flex');
+            modal.classList.add('hidden');
+            document.getElementById('uploadForm').reset();
+            document.getElementById('newCategoryUploadGroup').classList.add('hidden');
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.innerText = 'Simpan Buku';
+            submitBtn.disabled = false;
+        }
+
+        // Upload handler yang dioptimalkan menggunakan Blob murni (anti-stuck)
+        function handleUpload(e) {
+            e.preventDefault();
+            const title = document.getElementById('bookTitle').value;
+            const author = document.getElementById('bookAuthor').value;
+            let category = document.getElementById('bookCategory').value;
+
+            if (category === 'ADD_NEW_CATEGORY') {
+                alert('Silakan masukkan dan klik tombol "Tambah" untuk list baru terlebih dahulu.');
+                return;
+            }
+
+            const fileInput = document.getElementById('bookFile');
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.innerText = 'Menyimpan...';
+            submitBtn.disabled = true;
+
+            const newBook = {
+                id: Date.now(),
+                title,
+                author,
+                category,
+                fileData: file, // Menyimpan file Blob secara langsung
+                lastPage: 1,
+                isCompleted: false
+            };
+
+            saveBookToDB(newBook, () => closeUploadModal());
+        }
+
+        function toggleComplete(id) {
+            const book = books.find(b => b.id === id);
+            if (book) {
+                book.isCompleted = !book.isCompleted;
+                saveBookToDB(book);
+            }
+        }
+
+        function deleteBook(id) {
+            if (confirm('Apakah Anda yakin ingin menghapus buku ini dari library?')) {
+                deleteBookFromDB(id);
+            }
+        }
+
+        // Pembaca buku dengan async arrayBuffer (anti-stuck & anti-burik)
+        async function openReadModal(id) {
+            const book = books.find(b => b.id === id);
+            if (!book) return;
+
+            currentActiveBookId = id;
+            document.getElementById('readTitle').innerText = book.title;
+            pageNum = book.lastPage || 1;
+            scale = 0.8;
+            updateZoomLabel();
+
+            try {
+                let arrayBuffer;
+                if (book.fileData instanceof Blob || book.fileData instanceof File) {
+                    arrayBuffer = await book.fileData.arrayBuffer();
+                } else if (typeof book.fileData === 'string' && book.fileData.startsWith('data:')) {
+                    const base64Data = book.fileData.split(',')[1];
+                    const binaryString = atob(base64Data);
+                    const len = binaryString.length;
+                    const bytes = new Uint8Array(len);
+                    for (let i = 0; i < len; i++) {
+                        bytes[i] = binaryString.charCodeAt(i);
+                    }
+                    arrayBuffer = bytes.buffer;
+                } else {
+                    throw new Error('Format data file tidak valid');
+                }
+
+                const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+                loadingTask.promise.then(function(pdfDoc_) {
+                    pdfDoc = pdfDoc_;
+                    document.getElementById('pageCount').textContent = pdfDoc.numPages;
+
+                    if (pageNum > pdfDoc.numPages) pageNum = 1;
+
+                    renderPage(pageNum);
+                    
+                    const modal = document.getElementById('readModal');
+                    modal.classList.remove('hidden');
+                    modal.classList.add('flex');
+                }).catch(function(err) {
+                    console.error(err);
+                    alert('Gagal memuat file PDF.');
+                });
+            } catch(e) {
+                console.error(e);
+                alert('Gagal membaca data file buku.');
+            }
+        }
+
+        function closeReadModal() {
+            const modal = document.getElementById('readModal');
+            modal.classList.remove('flex');
+            modal.classList.add('hidden');
+            if (currentActiveBookId) {
+                const book = books.find(b => b.id === currentActiveBookId);
+                if (book) {
+                    book.lastPage = pageNum;
+                    saveBookToDB(book);
+                }
+            }
+        }
+
+        function renderPage(num) {
+            pageRendering = true;
+            pdfDoc.getPage(num).then(function(page) {
+                const viewport = page.getViewport({ scale: scale });
+                const outputScale = window.devicePixelRatio || 1;
+
+                canvas.width = Math.floor(viewport.width * outputScale);
+                canvas.height = Math.floor(viewport.height * outputScale);
+                
+                canvas.style.width = Math.floor(viewport.width) + 'px';
+                canvas.style.height = Math.floor(viewport.height) + 'px';
+
+                const transform = outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null;
+
+                const renderContext = {
+                    canvasContext: ctx,
+                    viewport: viewport,
+                    transform: transform
+                };
+                
+                const renderTask = page.render(renderContext);
+
+                renderTask.promise.then(function() {
+                    pageRendering = false;
+                    if (pageNumPending !== null) {
+                        renderPage(pageNumPending);
+                        pageNumPending = null;
+                    }
+                });
+            });
+
+            document.getElementById('pageNum').textContent = num;
+        }
+
+        function queueRenderPage(num) {
+            if (pageRendering) {
+                pageNumPending = num;
+            } else {
+                renderPage(num);
+            }
+        }
+
+        function prevPage() {
+            if (pageNum <= 1) return;
+            pageNum--;
+            queueRenderPage(pageNum);
+        }
+
+        function nextPage() {
+            if (pageNum >= pdfDoc.numPages) return;
+            pageNum++;
+            queueRenderPage(pageNum);
+        }
+
+        function zoomIn() {
+            if (scale < 2.5) {
+                scale += 0.2;
+                updateZoomLabel();
+                queueRenderPage(pageNum);
+            }
+        }
+
+        function zoomOut() {
+            if (scale > 0.6) {
+                scale -= 0.2;
+                updateZoomLabel();
+                queueRenderPage(pageNum);
+            }
+        }
+
+        function updateZoomLabel() {
+            document.getElementById('zoomLabel').innerText = Math.round(scale * 100) + '%';
+        }
+    </script>
+</body>
+</html>
